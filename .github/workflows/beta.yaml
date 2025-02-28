@@ -41,9 +41,30 @@ jobs:
             tar -czf paymenter.tar.gz * .env.example .gitignore
 
       # Add to action file
-      - name: Upload archive to https://api.paymenter.org/beta
-        uses: JantHsueh/upload-file-action@master
+      # - name: Upload archive to https://api.paymenter.org/beta
+        # uses: JantHsueh/upload-file-action@master
+        # with:
+          # url: https://api.paymenter.org/beta
+          # forms: '{"api_key": "${{ secrets.API_KEY }}"}'
+          # fileForms: '{"file": "paymenter.tar.gz"}'
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          url: https://api.paymenter.org/beta
-          forms: '{"api_key": "${{ secrets.API_KEY }}"}'
-          fileForms: '{"file": "paymenter.tar.gz"}'
+          tag_name: beta-${{ github.sha }}
+          release_name: Beta Release ${{ github.sha }}
+          draft: false
+          prerelease: true
+  
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./paymenter.tar.gz
+          asset_name: paymenter.tar.gz
+          asset_content_type: application/gzip
