@@ -3,10 +3,12 @@
 namespace Paymenter\Extensions\Gateways\PayPal;
 
 use App\Classes\Extension\Gateway;
+use App\Events\Service\Updated;
 use App\Helpers\ExtensionHelper;
 use App\Models\Order;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\View;
 
@@ -17,6 +19,24 @@ class PayPal extends Gateway
         require __DIR__ . '/routes.php';
         // Register webhook route
         View::addNamespace('gateways.paypal', __DIR__ . '/resources/views');
+
+        Event::listen(Updated::class, function ($event) {
+            if ($event->service->properties->where('key', 'has_paypal_subscription')->first()?->value !== '1') {
+                return;
+            }
+            if ($event->service->isDirty('price')) {
+                try {
+                    $this->updateSubscription($event->service);
+                } catch (\Exception $e) {
+                }
+            }
+            if ($event->service->isDirty('status') && $event->service->status === Service::STATUS_CANCELLED) {
+                try {
+                    $this->cancelSubscription($event->service);
+                } catch (\Exception $e) {
+                }
+            }
+        });
     }
 
     public function getConfig($values = [])
@@ -65,12 +85,18 @@ class PayPal extends Gateway
         return once(function () {
             $url = $this->config('test_mode') ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
 
-            return Http::withHeaders([
+            $result = Http::withHeaders([
                 'Accept' => 'application/json',
                 'Authorization' => 'Basic ' . base64_encode($this->config('client_id') . ':' . $this->config('client_secret')),
             ])->asForm()->post($url . '/v1/oauth2/token', [
                 'grant_type' => 'client_credentials',
-            ])->object()->access_token;
+            ]);
+
+            if ($result->failed()) {
+                throw new \Exception('Failed to generate access token: ' . $result->body());
+            }
+
+            return $result->json()['access_token'];
         });
     }
 
@@ -85,8 +111,11 @@ class PayPal extends Gateway
     public function pay($invoice, $total)
     {
         $url = $this->config('test_mode') ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+        $eligableforSubscription = collect($invoice->items)->filter(function ($item) {
+            return $item->reference_type === Service::class;
+        })->count() == $invoice->items->count();
 
-        if ($this->config('paypal_use_subscriptions') && $invoice->items->map(fn ($item) => $item->reference->plan->billing_period . $item->reference->plan->billing_unit)->unique()->count() === 1) {
+        if ($this->config('paypal_use_subscriptions') && $eligableforSubscription && $invoice->items->map(fn ($item) => $item->reference->plan->billing_period . $item->reference->plan->billing_unit)->unique()->count() === 1) {
             $paypalProduct = $this->request('post', $url . '/v1/catalogs/products', [
                 'name' => $invoice->items->first()->reference->product->name,
                 'type' => 'SERVICE',
@@ -151,8 +180,8 @@ class PayPal extends Gateway
                     ],
                 ],
                 'application_context' => [
-                    'return_url' => route('invoices.show', ['invoice' => $invoice->id]),
-                    'cancel_url' => route('invoices.show', ['invoice' => $invoice->id]),
+                    'return_url' => route('invoices.show', $invoice),
+                    'cancel_url' => route('invoices.show', $invoice),
                     // Disable shipping information
                     'shipping_preference' => 'NO_SHIPPING',
                 ],
@@ -205,9 +234,9 @@ class PayPal extends Gateway
         $body = $request->json()->all();
 
         // Handle the subscription event
-        if ($body['event_type'] === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+        if ($body['event_type'] === 'BILLING.SUBSCRIPTION.ACTIVATED' && isset($body['resource']['custom_id'])) {
             // Its activated so we can now add the subscription to the user (custom is the order id)
-            Order::find($body['resource']['custom_id'])->services->each(function ($service) use ($body) {
+            Order::findOrFail($body['resource']['custom_id'])->services->each(function ($service) use ($body) {
                 $service->subscription_id = $body['resource']['id'];
                 $service->save();
                 $service->properties()->updateOrCreate([
@@ -219,7 +248,7 @@ class PayPal extends Gateway
             });
 
             return response()->json(['status' => 'success']);
-        } elseif ($body['event_type'] === 'PAYMENT.SALE.COMPLETED') {
+        } elseif ($body['event_type'] === 'PAYMENT.SALE.COMPLETED' && isset($body['resource']['custom'])) {
             $order = Order::findOrFail($body['resource']['custom']);
             foreach ($order->services as $service) {
                 // Get last invoice item

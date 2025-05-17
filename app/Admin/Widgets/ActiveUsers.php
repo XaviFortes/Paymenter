@@ -24,4 +24,9 @@ class ActiveUsers extends Widget
                 ->get(),
         ]);
     }
+
+    public static function canView(): bool
+    {
+        return auth()->user()->hasPermission('admin.widgets.active_users');
+    }
 }

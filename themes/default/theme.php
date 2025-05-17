@@ -14,6 +14,20 @@ return [
             'description' => 'Don\'t show the product overview page, go directly to the checkout page',
         ],
         [
+            'name' => 'small_images',
+            'label' => 'Small Images',
+            'type' => 'checkbox',
+            'default' => false,
+            'description' => 'Show small images in the product overview page',
+        ],
+        [
+            'name' => 'show_category_description',
+            'label' => 'Show Category Description',
+            'type' => 'checkbox',
+            'default' => true,
+            'description' => 'Show the category description in the product overview page/homepage',
+        ],
+        [
             'name' => 'home_page_text',
             'label' => 'Home Page Text',
             'type' => 'markdown',

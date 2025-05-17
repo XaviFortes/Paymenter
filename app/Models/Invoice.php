@@ -21,11 +21,13 @@ class Invoice extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
-    protected $fillable = ['user_id', 'currency_code',  'due_at', 'status'];
+    protected $fillable = ['number', 'user_id', 'currency_code',  'due_at', 'status'];
 
     protected $casts = [
         'due_at' => 'date',
     ];
+
+    public bool $send_create_email = true;
 
     /**
      * Total of the invoice.

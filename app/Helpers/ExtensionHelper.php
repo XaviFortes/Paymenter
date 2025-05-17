@@ -48,7 +48,7 @@ class ExtensionHelper
         $extension = '\\Paymenter\\Extensions\\' . ucfirst($type) . 's\\' . $extension . '\\' . $extension;
 
         if (!class_exists($extension)) {
-            throw new Exception('Extension not found');
+            throw new Exception('Extension "' . $extension . '" not found');
         }
 
         if (!is_array($config)) {
@@ -321,16 +321,24 @@ class ExtensionHelper
         }
 
         $invoice = Invoice::findOrFail($invoice);
-        $invoice->transactions()->updateOrCreate(
-            [
-                'transaction_id' => $transactionId,
-            ],
-            [
+        if (!$transactionId) {
+            $invoice->transactions()->create([
                 'gateway_id' => $gateway ? $gateway->id : null,
                 'amount' => $amount,
                 'fee' => $fee,
-            ]
-        );
+            ]);
+        } else {
+            $invoice->transactions()->updateOrCreate(
+                [
+                    'transaction_id' => $transactionId,
+                ],
+                [
+                    'gateway_id' => $gateway ? $gateway->id : null,
+                    'amount' => $amount,
+                    'fee' => $fee,
+                ]
+            );
+        }
 
         if ($invoice->remaining <= 0 && $invoice->status !== 'paid') {
             $invoice->status = 'paid';
@@ -426,6 +434,16 @@ class ExtensionHelper
         $server = self::checkServer($service, 'terminateServer');
 
         return self::getExtension('server', $server->extension, $server->settings)->terminateServer($service, self::settingsToArray($service->product->settings), self::getServiceProperties($service));
+    }
+
+    /**
+     * Upgrade server
+     */
+    public static function upgradeServer(Service $service)
+    {
+        $server = self::checkServer($service, 'upgradeServer');
+
+        return self::getExtension('server', $server->extension, $server->settings)->upgradeServer($service, self::settingsToArray($service->product->settings), self::getServiceProperties($service));
     }
 
     /**

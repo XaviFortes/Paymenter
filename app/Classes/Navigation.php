@@ -11,7 +11,9 @@ class Navigation
     public static function getLinks()
     {
         $categories = once(fn () => Category::whereNull('parent_id')->where(function ($query) {
-            $query->whereHas('children')->orWhereHas('products');
+            $query->whereHas('children')->orWhereHas('products', function ($query) {
+                $query->where('hidden', false);
+            });
         })->get());
 
         $routes = [
@@ -83,14 +85,16 @@ class Navigation
             [
                 'name' => __('navigation.dashboard'),
                 'route' => 'dashboard',
-                'icon' => 'ri-dashboard',
+                'icon' => 'ri-function',
                 'condition' => Auth::check(),
+                'priority' => 10,
             ],
             [
                 'name' => __('navigation.services'),
                 'route' => 'services',
                 'icon' => 'ri-archive-stack',
                 'condition' => Auth::check(),
+                'priority' => 20,
             ],
             [
                 'name' => __('navigation.invoices'),
@@ -98,6 +102,7 @@ class Navigation
                 'icon' => 'ri-receipt',
                 'separator' => true,
                 'condition' => Auth::check(),
+                'priority' => 30,
             ],
             [
                 'name' => __('navigation.tickets'),
@@ -105,30 +110,37 @@ class Navigation
                 'icon' => 'ri-customer-service',
                 'separator' => true,
                 'condition' => Auth::check(),
+                'priority' => 40,
             ],
             [
                 'name' => __('navigation.account'),
                 'icon' => 'ri-settings-3',
                 'condition' => Auth::check(),
-                'children' => [
+                'priority' => 50,
+                'children' => EventHelper::itemEvent(
+                    'navigation.account',
                     [
-                        'name' => __('navigation.personal_details'),
-                        'route' => 'account',
-                        'params' => [],
-                    ],
-                    [
-                        'name' => __('navigation.security'),
-                        'route' => 'account.security',
-                        'params' => [],
-                    ],
-                    [
-                        'name' => __('account.credits'),
-                        'route' => 'account.credits',
-                        'params' => [],
-                        'condition' => config('settings.credits_enabled'),
-                    ],
-                    ...EventHelper::itemEvent('navigation.account', []),
-                ],
+                        [
+                            'name' => __('navigation.personal_details'),
+                            'route' => 'account',
+                            'params' => [],
+                            'priority' => 10,
+                        ],
+                        [
+                            'name' => __('navigation.security'),
+                            'route' => 'account.security',
+                            'params' => [],
+                            'priority' => 20,
+                        ],
+                        [
+                            'name' => __('account.credits'),
+                            'route' => 'account.credits',
+                            'params' => [],
+                            'condition' => config('settings.credits_enabled'),
+                            'priority' => 30,
+                        ],
+                    ]
+                ),
             ],
         ];
 

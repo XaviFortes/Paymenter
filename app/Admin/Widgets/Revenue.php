@@ -110,4 +110,9 @@ class Revenue extends ChartWidget
     {
         return 'line';
     }
+
+    public static function canView(): bool
+    {
+        return auth()->user()->hasPermission('admin.widgets.revenue');
+    }
 }

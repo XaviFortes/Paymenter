@@ -19,7 +19,7 @@ class Settings extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationGroup = 'Configuration';
+    protected static ?string $navigationGroup = 'System';
 
     protected static ?string $title = 'Settings';
 
@@ -47,7 +47,7 @@ class Settings extends Page implements HasForms
     {
         $tabs = [];
 
-        foreach (ClassesSettings::settingsObject() as $key => $categories) {
+        foreach (ClassesSettings::settings() as $key => $categories) {
             $tab = Tabs\Tab::make($key)
                 ->label(ucwords(str_replace('-', ' ', $key)))
                 ->schema(function () use ($categories) {

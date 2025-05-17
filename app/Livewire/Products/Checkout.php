@@ -10,6 +10,7 @@ use App\Livewire\Traits\CurrencyChanged;
 use App\Models\Category;
 use App\Models\Plan;
 use App\Models\Price as ModelsPrice;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -25,6 +26,7 @@ class Checkout extends Component
 
     public Plan $plan;
 
+    #[Url(keep: true, as: 'plan')]
     public $plan_id;
 
     // Don't allow the user to change the total via hacks
@@ -45,6 +47,9 @@ class Checkout extends Component
     public function mount($product)
     {
         $this->product = $this->category->products()->where('slug', $product)->firstOrFail();
+        if ($this->product->stock === 0) {
+            return $this->redirect(route('products.show', ['category' => $this->category, 'product' => $this->product]), true);
+        }
 
         // Is there a existing item in the cart?
         if (Cart::get()->has($this->cartProductKey) && Cart::get()->get($this->cartProductKey)->product->id === $this->product->id) {
@@ -58,7 +63,7 @@ class Checkout extends Component
             $this->checkoutConfig = $item->checkoutConfig;
         } else {
             // Set the first plan as default
-            $this->plan = $this->product->plans->first();
+            $this->plan = $this->plan_id ? $this->product->plans->findOrFail($this->plan_id) : $this->product->plans->first();
             $this->plan_id = $this->plan->id;
 
             // Prepare the config options
@@ -68,7 +73,7 @@ class Checkout extends Component
                 }
 
                 return [$option->id => $this->configOptions[$option->id] ?? $option->children->first()->id];
-            });
+            })->toArray();
             foreach ($this->getCheckoutConfig() as $config) {
                 if (in_array($config['type'], ['select', 'radio'])) {
                     $this->checkoutConfig[$config['name']] = $this->checkoutConfig[$config['name']] ?? $config['default'] ?? array_key_first($config['options']);
@@ -79,6 +84,12 @@ class Checkout extends Component
         }
         // Update the pricing
         $this->updatePricing();
+
+        // As there is only one plan, config options and checkout config, we can directly call the checkout method to avoid confusion
+        // This is only done when the user is not editing the cart item
+        if ($this->product->plans->count() === 1 && empty($this->configOptions) && empty($this->checkoutConfig)) {
+            $this->checkout();
+        }
     }
 
     // Making sure its being called when the currency is changed
@@ -103,7 +114,7 @@ class Checkout extends Component
             'price' => $total + $setup_fee,
             'currency' => $this->plan->price()->currency,
             'setup_fee' => $setup_fee,
-        ]);
+        ], apply_exclusive_tax: true);
     }
 
     // On change of the plan, update the config options
@@ -135,7 +146,6 @@ class Checkout extends Component
             if (in_array($option->type, ['text', 'number'])) {
                 $rules["configOptions.{$option->id}"] = ['required'];
             } elseif ($option->type === 'checkbox') {
-
             } else {
                 $rules["configOptions.{$option->id}"] = ['required', 'exists:config_options,id'];
             }
@@ -198,6 +208,9 @@ class Checkout extends Component
 
     public function render()
     {
-        return view('products.checkout');
+        return view('products.checkout')->layoutData([
+            'title' => $this->product->name,
+            'image' => $this->product->image ? Storage::url($this->product->image) : null,
+        ]);
     }
 }

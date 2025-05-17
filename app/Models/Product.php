@@ -6,6 +6,7 @@ use App\Models\Traits\HasPlans;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -35,7 +36,7 @@ class Product extends Model
      */
     public function configOptions(): HasManyThrough
     {
-        return $this->hasManyThrough(ConfigOption::class, ConfigOptionProduct::class, 'product_id', 'id', 'id', 'config_option_id')->where('hidden', false)->orderBy('sort', 'asc');
+        return $this->hasManyThrough(ConfigOption::class, ConfigOptionProduct::class, 'product_id', 'id', 'id', 'config_option_id')->where('hidden', false)->orderBy('sort', 'asc')->orderBy('id', 'desc');
     }
 
     /**
@@ -44,6 +45,14 @@ class Product extends Model
     public function server()
     {
         return $this->belongsTo(Server::class);
+    }
+
+    /**
+     * Get all services using this product.
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
     }
 
     /**

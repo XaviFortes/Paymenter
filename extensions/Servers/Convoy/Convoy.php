@@ -162,6 +162,7 @@ class Convoy extends Server
                 'label' => 'Hostname',
                 'placeholder' => 'server.example.com',
                 'required' => true,
+                'validation' => 'required|string|max:40',
             ],
         ];
     }
@@ -172,7 +173,7 @@ class Convoy extends Server
     public function testConfig(): bool|string
     {
         try {
-            $this->request('/servers');
+            $this->request('servers');
 
             return true;
         } catch (\Exception $e) {
@@ -186,7 +187,7 @@ class Convoy extends Server
     private function createPassword()
     {
         $password = Str::password();
-        while (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,50}$/', $password)) {
+        while (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$%\^&\*]).{8,50}$/', $password)) {
             $password = Str::password();
         }
 
@@ -265,7 +266,7 @@ class Convoy extends Server
                 'disk' => $disk * 1024 * 1024,
                 'snapshots' => (int) $snapshot,
                 'bandwidth' => (int) $bandwidth == 0 ? null : (int) $bandwidth * 1024 * 1024,
-                'backups' => (int) $backups == 0 ? null : (int) $backups,
+                'backups' => (int) $backups,
                 'address_ids' => $ips,
             ],
             'account_password' => $password,
@@ -358,7 +359,7 @@ class Convoy extends Server
 
     public function ssoLink(Service $service): string
     {
-        $data = $this->request('/users/' . $this->getOrCreateUser($service->order->user)['id'] . '/generate-sso-token', 'post');
+        $data = $this->request('users/' . $this->getOrCreateUser($service->order->user)['id'] . '/generate-sso-token', 'post');
 
         return rtrim($this->config('host'), '/') . '/authenticate?token=' . $data['data']['token'];
     }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{ __('invoices.invoice', ['id' => $invoice->id]) }}</title>
+    <title>{{ __('invoices.invoice', ['id' => $invoice->number]) }}</title>
     <style>
         body {
             font-family:
@@ -84,44 +84,28 @@
     <table class="invoice-info">
         <tr>
             <td rowspan="2" style="font-size: 1em;vertical-align: top;">
-                {{ $invoice->user->name }}
+                <strong>{{ __('invoices.issued_to') }}</strong><br>
+                {{ $invoice->user->name }} <br />
+                @foreach($invoice->user->properties()->with('parent_property')->whereHas('parent_property', function
+                ($query) {
+                $query->where('show_on_invoice', true);
+                })->get() as $property)
+                {{ $property->value }} <br />
+                @endforeach
             </td>
             <td>
-                {{ config('settings.company_name') }}
-            </td>
-        </tr>
-        <tr>
-            <td>
-                @if(config('settings.company_address') || config('settings.company_zip'))
-                    {{ config('settings.company_address') }}, {{ config('settings.company_zip') }}
-                @endif
-            </td>
-        </tr>
-        <tr>
-            <td>
-                {{ __('invoices.invoice_date') }}: <strong>{{ $invoice->created_at->format('d/m/Y') }}</strong>
-            </td>
-            <td>
-                @if(config('settings.company_state') || config('settings.company_country'))
-                    {{ config('settings.company_state') }}, {{ config('settings.company_country') }}
-                @endif
-            </td>
-        </tr>
-        <tr>
-            <td>
-                {{ __('invoices.invoice_no') }}: <strong>{{ $invoice->id }}</strong>
-            </td>
-            <td>
-                {{ config('settings.company_email') }}
-            </td>
-        </tr>
-        <tr>
-            <td></td>
-            <td>
-                {{ config('settings.company_phone') }}
+                <strong>{{ strtoupper(__('invoices.bill_to')) }}</strong> <br />
+                {{ config('settings.company_name') }} <br />
+                {{ config('settings.company_address') }} {{ config('settings.company_address2') }} <br />
+                {{ config('settings.company_zip') }} {{ config('settings.company_city') }} <br />
+                {{ config('settings.company_state') }} {{ config('settings.company_country') }}  <br />
+                {{ config('settings.company_tax_id') }} <br />
+                {{ config('settings.company_id') }} <br />
             </td>
         </tr>
     </table>
+    <p>{{ __('invoices.invoice_date') }}: <strong>{{ $invoice->created_at->format('d/m/Y') }}</strong></p>
+    <p>{{ __('invoices.invoice_no') }}: <strong>{{ $invoice->number }}</strong></p>
 
     <table style="margin-top: 40px;" class="invoice-items">
         <thead>
@@ -143,7 +127,7 @@
             @endforeach
         </tbody>
     </table>
-    
+
     @if($invoice->transactions->count() > 0)
     <table style="margin-top: 80px;" class="invoice-items">
         <thead>

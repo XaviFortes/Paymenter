@@ -10,16 +10,17 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class Support extends BaseWidget
 {
-    protected static ?string $pollingInterval = '2m';
+    protected static ?string $pollingInterval = '30s';
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
                 Ticket::query()
-                    ->with('user')
                     ->where('status', '!=', 'closed')
-                    ->orderBy('created_at', 'desc')
+                    ->with('user')
+                    ->withMax('messages', 'created_at')
+                    ->orderByDesc('messages_max_created_at')
                     ->limit(5)
             )
             ->columns([
@@ -41,5 +42,10 @@ class Support extends BaseWidget
             ])
             ->recordUrl(fn (Ticket $record) => TicketResource::getUrl('edit', ['record' => $record]))
             ->paginated(false);
+    }
+
+    public static function canView(): bool
+    {
+        return auth()->user()->hasPermission('admin.widgets.support');
     }
 }

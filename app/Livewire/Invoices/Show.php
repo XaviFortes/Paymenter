@@ -7,6 +7,7 @@ use App\Helpers\ExtensionHelper;
 use App\Livewire\Component;
 use App\Models\Gateway;
 use App\Models\Invoice;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -25,6 +26,8 @@ class Show extends Component
     public $checkPayment = false;
 
     private $pay = null;
+
+    public $use_credits = false;
 
     public function mount()
     {
@@ -45,10 +48,33 @@ class Show extends Component
         if (Request::has('checkPayment') && $this->invoice->status === 'pending') {
             $this->checkPayment = true;
         }
+
+        // We don't want to toggle use_credits before $this->pay() is called, otherwise it will always paid with credits
+        $this->use_credits = true;
     }
 
     public function pay()
     {
+        if ($this->use_credits) {
+            $credit = Auth::user()->credits()->where('currency_code', $this->invoice->currency_code)->first();
+            if ($credit && $credit->amount > 0) {
+                // Is it more credits or less credits than the total price?
+                if ($credit->amount >= $this->invoice->remaining) {
+                    $credit->amount -= $this->invoice->remaining;
+                    $credit->save();
+                    ExtensionHelper::addPayment($this->invoice->id, null, amount: $this->invoice->remaining);
+
+                    return $this->redirect(route('invoices.show', $this->invoice), true);
+                } else {
+                    ExtensionHelper::addPayment($this->invoice->id, null, amount: $credit->amount);
+                    $credit->amount = 0;
+                    $credit->save();
+
+                    $this->invoice = $this->invoice->fresh();
+                }
+            }
+        }
+
         if ($this->invoice->status !== 'pending') {
             return $this->notify(__('This invoice cannot be paid.'), 'error');
         }
@@ -58,10 +84,11 @@ class Show extends Component
         $this->validate([
             'gateway' => 'required',
         ]);
+
         $this->pay = ExtensionHelper::pay(Gateway::where('id', $this->gateway)->first(), $this->invoice);
 
         if (is_string($this->pay)) {
-            return redirect()->to($this->pay);
+            $this->redirect($this->pay);
         }
     }
 
@@ -71,7 +98,7 @@ class Show extends Component
         // Dispatch event so extensions can do their thing
         $this->dispatch('invoice.payment.cancelled', $this->invoice);
         // Refresh invoice status
-        $this->redirect(route('invoices.show', $this->invoice->id), true);
+        $this->redirect(route('invoices.show', $this->invoice), true);
     }
 
     public function checkPaymentStatus()
@@ -86,7 +113,7 @@ class Show extends Component
     public function render()
     {
         return view('invoices.show')->layoutData([
-            'title' => __('invoices.invoice', ['id' => $this->invoice->id]),
+            'title' => __('invoices.invoice', ['id' => $this->invoice->number]),
             'sidebar' => true,
         ]);
     }
@@ -95,6 +122,6 @@ class Show extends Component
     {
         return response()->streamDownload(function () {
             echo PDF::generateInvoice($this->invoice)->stream();
-        }, 'invoice-' . $this->invoice->id . '.pdf');
+        }, 'invoice-' . $this->invoice->number . '.pdf');
     }
 }

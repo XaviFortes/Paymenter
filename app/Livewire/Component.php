@@ -2,18 +2,22 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\DisplayException;
+
 class Component extends \Livewire\Component
 {
-    /**
-     * Notifications
-     */
-    public function notify($message, $type = 'success')
-    {
-        $this->dispatch('notify', ['message' => $message, 'type' => $type]);
-    }
+    use Traits\HasNotifications;
 
     public function paginationView()
     {
         return 'components.pagination';
+    }
+
+    public function exception($e, $stopPropagation)
+    {
+        if ($e instanceof DisplayException) {
+            $this->notify($e->getMessage(), 'error');
+            $stopPropagation();
+        }
     }
 }

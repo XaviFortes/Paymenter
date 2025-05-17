@@ -43,6 +43,9 @@ return [
             'delete' => 'Delete Tickets',
             'deleteAny' => 'Bulk Delete Tickets',
         ],
+        'ticket_messages' => [
+            'delete' => 'Delete Ticket Messages',
+        ],
         'orders' => [
             'create' => 'Create Orders',
             'update' => 'Update Orders',
@@ -99,6 +102,13 @@ return [
             'delete' => 'Delete Config Options',
             'deleteAny' => 'Bulk Delete Config Options',
         ],
+        'tax_rates' => [
+            'create' => 'Create Tax Rates',
+            'update' => 'Update Tax Rates',
+            'viewAny' => 'View Tax Rates',
+            'delete' => 'Delete Tax Rates',
+            'deleteAny' => 'Bulk Delete Tax Rates',
+        ],
         'gateways' => [
             'create' => 'Create Gateways',
             'update' => 'Update Gateways',
@@ -137,6 +147,15 @@ return [
             'viewAny' => 'View OAuth Clients',
             'delete' => 'Delete OAuth Clients',
             'deleteAny' => 'Bulk Delete OAuth Clients',
+        ],
+        'widgets' => [
+            'revenue' => 'View Revenue Widget',
+            'overview' => 'View Overview Widget',
+            'support' => 'View Tickets Widget',
+            'active_users' => 'View Active Users Widget',
+        ],
+        'updates' => [
+            'update' => 'View and Update Application',
         ],
     ],
 ];

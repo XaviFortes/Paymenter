@@ -3,6 +3,7 @@
 namespace App\Livewire\Services;
 
 use App\Events\Invoice\Created as InvoiceCreated;
+use App\Jobs\Server\UpgradeJob;
 use App\Livewire\Component;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -89,6 +90,11 @@ class Upgrade extends Component
                 'product_id' => $upgrade->product_id,
             ]);
 
+            if ($this->service->product->server) {
+                // If the service has a server, dispatch the upgrade job
+                UpgradeJob::dispatch($this->service);
+            }
+
             // Check if user has credits in this currency
             /** @var \App\Models\User */
             $user = Auth::user();
@@ -121,7 +127,7 @@ class Upgrade extends Component
             'due_at' => Carbon::now()->addDays(7),
             'user_id' => $this->service->order->user_id,
         ]);
-        $invoice->saveQuietly();
+        $invoice->save();
 
         $upgrade->invoice_id = $invoice->id;
         $upgrade->save();

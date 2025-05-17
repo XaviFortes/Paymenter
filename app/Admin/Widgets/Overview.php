@@ -63,4 +63,9 @@ class Overview extends BaseWidget
             ->chart($chart->map(fn (TrendValue $value) => $value->aggregate)->toArray())
             ->color($increase >= 0 ? 'success' : 'danger');
     }
+
+    public static function canView(): bool
+    {
+        return auth()->user()->hasPermission('admin.widgets.overview');
+    }
 }

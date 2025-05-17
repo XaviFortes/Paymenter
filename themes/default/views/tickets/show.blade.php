@@ -4,17 +4,17 @@
     <div class="md:grid grid-cols-4 flex flex-col gap-4">
         <div class="md:col-span-3">
             <div class="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-4" wire:poll.5s>
-                @foreach ($ticket->messages()->orderBy('created_at', 'desc')->with('user')->get() as $message)
+                @foreach ($ticket->messages()->with('user')->get() as $index => $message)
                     <div
-                        class="bg-background-secondary hover:bg-background-secondary/80 border border-neutral p-4 rounded-lg w-full max-w-[80%]  {{ $message->user_id === $ticket->user_id ? 'ml-auto' : 'mr-auto' }}">
+                        class="bg-background-secondary hover:bg-background-secondary/80 border border-neutral p-4 rounded-lg w-full max-w-[80%]  {{ $message->user_id === $ticket->user_id ? 'ml-auto' : 'mr-auto' }}"
+                        @if ($loop->last) x-data x-init="$el.scrollIntoView()" @endif>
                         <div class="flex items-center justify-between">
                             <div>
                                 <h2 class="text-lg font-semibold">{{ $message->user->name }}</h2>
                                 <p class="text-sm text-gray-500">{{ $message->created_at->diffForHumans() }}</p>
                             </div>
                         </div>
-                        <div class="mt-2 prose dark:prose-invert">{!! Str::markdown($message->message, [
-                            'html_input' => 'strip',
+                        <div class="mt-2 prose dark:prose-invert">{!! Str::markdown(nl2br(e($message->message)), [
                             'allow_unsafe_links' => false,
                         ]) !!}</div>
                     </div>

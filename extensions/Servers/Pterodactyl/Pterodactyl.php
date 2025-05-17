@@ -202,7 +202,7 @@ class Pterodactyl extends Server
                 'label' => 'Port Array',
                 'type' => 'text',
                 'description' => 'Used to assign ports to egg variables.',
-                'hint' => new HtmlString('<a href="https://docs.paymenter.org/docs/servers/pterodactyl" target="_blank">Documentation</a>'),
+                'hint' => new HtmlString('<a href="https://paymenter.org/docs/extensions/pterodactyl#port-array" target="_blank">Documentation</a>'),
                 'live' => true,
                 'validation' => 'json',
             ],
@@ -260,7 +260,7 @@ class Pterodactyl extends Server
             $environment[$variable['attributes']['env_variable']] = $settings[$variable['attributes']['env_variable']] ?? $variable['attributes']['default_value'];
         }
 
-        $orderUser = $service->order->user;
+        $orderUser = $service->user;
         // Get the user id if one already exists...
         $user = $this->request('/api/application/users', 'get', ['filter' => ['email' => $orderUser->email]])['data'][0]['attributes']['id'] ?? null;
 
@@ -268,7 +268,7 @@ class Pterodactyl extends Server
         if (!$user) {
             $user = $this->request('/api/application/users', 'post', [
                 'email' => $orderUser->email,
-                'username' => (preg_replace('/[^a-zA-Z0-9]/', '', strtolower($orderUser->name)) ?? Str::random(8)) . '_' . Str::random(4),
+                'username' => (preg_replace('/[^a-zA-Z0-9]/', '', strtolower(Str::transliterate($orderUser->name))) ?? Str::random(8)) . '_' . Str::random(4),
                 'first_name' => $orderUser->first_name ?? '',
                 'last_name' => $orderUser->last_name ?? '',
             ])['attributes']['id'];
@@ -280,7 +280,7 @@ class Pterodactyl extends Server
 
         $serverCreationData = [
             'external_id' => (string) $service->id,
-            'name' => $service->product->name . '-' . $service->id,
+            'name' => isset($settings['servername']) ? $settings['servername'] : $service->product->name . ' #' . $service->id,
             'user' => (int) $user,
             'egg' => $settings['egg_id'],
             'docker_image' => $eggData['attributes']['docker_image'],
@@ -526,6 +526,60 @@ class Pterodactyl extends Server
         $server = $this->getServer($service->id);
 
         $this->request('/api/application/servers/' . $server, 'delete');
+
+        return true;
+    }
+
+    public function upgradeServer(Service $service, $settings, $properties)
+    {
+        $server = $this->getServer($service->id, raw: true);
+
+        $settings = array_merge($settings, $properties);
+
+        $updateServerData = [
+            'allocation' => $server['attributes']['allocation'],
+            'memory' => (int) $settings['memory'],
+            'swap' => (int) $settings['swap'],
+            'disk' => (int) $settings['disk'],
+            'io' => (int) $settings['io'],
+            'cpu' => (int) $settings['cpu'],
+            'threads' => $settings['cpu_pinning'] ?? null,
+            'feature_limits' => [
+                'databases' => $settings['databases'],
+                'allocations' => $settings['additional_allocations'],
+                'backups' => $settings['backups'],
+            ],
+        ];
+
+        $this->request('/api/application/servers/' . $server['attributes']['id'] . '/build', 'patch', $updateServerData);
+
+        $eggData = $this->request('/api/application/nests/' . $settings['nest_id'] . '/eggs/' . $settings['egg_id'], data: ['include' => 'variables']);
+
+        if (!isset($eggData['attributes'])) {
+            throw new \Exception('Could not fetch egg data');
+        }
+
+        $environment = [];
+
+        foreach ($eggData['attributes']['relationships']['variables']['data'] as $variable) {
+            // Check if variable has been set on server
+            if (isset($server['attributes']['container']['environment'][$variable['attributes']['env_variable']])) {
+                $environment[$variable['attributes']['env_variable']] = $server['attributes']['container']['environment'][$variable['attributes']['env_variable']];
+            } else {
+                $environment[$variable['attributes']['env_variable']] = $settings[$variable['attributes']['env_variable']] ?? $variable['attributes']['default_value'];
+            }
+        }
+
+        $updateServerData = [
+            'environment' => $environment,
+            'skip_scripts' => $settings['skip_scripts'] ?? false,
+            'oom_disabled' => !($settings['oom_killer'] ?? false),
+            'egg' => $settings['egg_id'],
+            'image' => $server['attributes']['container']['image'] ?? $eggData['attributes']['docker_image'],
+            'startup' => $server['attributes']['container']['startup_command'] ?? $settings['startup'] ?? $eggData['attributes']['startup'],
+        ];
+
+        $this->request('/api/application/servers/' . $server['attributes']['id'] . '/startup', 'patch', $updateServerData);
 
         return true;
     }

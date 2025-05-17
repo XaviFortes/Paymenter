@@ -4,7 +4,6 @@
     "scripts": {
         "dev": "node vite.js dev",
         "build": "node vite.js",
-        "lang": "laravel-language-extractor",
         "dev:admin": "npx tailwindcss --input ./resources/css/filament/admin/theme.css --output ./public/css/filament/admin/theme.css --config ./resources/css/filament/admin/tailwind.config.js --watch",
         "build:admin": "npx tailwindcss --input ./resources/css/filament/admin/theme.css --output ./public/css/filament/admin/theme.css --config ./resources/css/filament/admin/tailwind.config.js --minify"
     },
@@ -14,6 +13,6 @@
         "@tailwindcss/vite": "^4.0.6",
         "laravel-vite-plugin": "^1.0",
         "tailwindcss": "^4.0.6",
-        "vite": "^5.4"
+        "vite": "^6.3"
     }
 }

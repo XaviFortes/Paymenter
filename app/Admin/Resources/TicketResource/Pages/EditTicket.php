@@ -157,7 +157,7 @@ class EditTicket extends EditRecord
                                         ->required(),
                                     Forms\Components\Select::make('assigned_to')
                                         ->label('Assigned To')
-                                        ->relationship('assignedTo', 'id')
+                                        ->relationship('assignedTo', 'id', fn (Builder $query) => $query->where('role_id', '!=', null))
                                         ->searchable()
                                         ->preload()
                                         ->getOptionLabelFromRecordUsing(fn ($record) => $record->name),
@@ -181,12 +181,14 @@ class EditTicket extends EditRecord
                         ->action(function (array $data, Ticket $record): void {
                             $record->update($data);
                         })
+                        ->hidden(!auth()->user()->can('update', $this->record))
                         ->icon('heroicon-o-pencil'),
                     Action::make('Delete')
                         ->color('danger')
                         ->icon('heroicon-o-trash')
                         ->requiresConfirmation()
                         ->action(fn (Ticket $record) => $record->delete())
+                        ->hidden(!auth()->user()->can('delete', $this->record))
                         ->after(function (StaticAction $action) {
                             Notification::make()
                                 ->title(__('filament-actions::delete.single.notifications.deleted.title'))
@@ -201,6 +203,8 @@ class EditTicket extends EditRecord
 
     public function deleteMessage(TicketMessage $message): void
     {
-        $message->delete();
+        if (auth()->user()->can('delete', $message)) {
+            $message->delete();
+        }
     }
 }

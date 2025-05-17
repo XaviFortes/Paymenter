@@ -7,6 +7,7 @@ use App\Helpers\ExtensionHelper;
 use App\Models\Product;
 use App\Models\Server;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -18,9 +19,19 @@ class EditProduct extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make()->after(function (Product $record) {
-                $record->settings()->delete();
-            }),
+            Actions\DeleteAction::make()
+                ->before(function (Product $record, Actions\DeleteAction $action) {
+                    if ($record->services()->count() > 0) {
+                        Notification::make()
+                            ->title('Whoops!')
+                            ->body('You cannot delete this plan because it is being used by one or more services.')
+                            ->danger()
+                            ->send();
+                        $action->cancel();
+                    }
+                })->after(function (Product $record) {
+                    $record->settings()->delete();
+                }),
         ];
     }
 
@@ -41,7 +52,7 @@ class EditProduct extends EditRecord
             return $record;
         }
 
-        $product_config = ExtensionHelper::getProductConfig(Server::findOrFail($data['server_id']));
+        $product_config = ExtensionHelper::getProductConfig(Server::findOrFail($data['server_id']), $data['settings']);
 
         $things = array_map(function ($option) use ($data, $record) {
             return [

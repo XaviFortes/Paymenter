@@ -15,12 +15,12 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Support\RawJs;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -30,9 +30,9 @@ class ProductResource extends Resource
 
     protected static ?string $navigationGroup = 'Administration';
 
-    protected static ?string $navigationIcon = 'ri-archive-stack-line';
+    protected static ?string $navigationIcon = 'ri-instance-line';
 
-    protected static ?string $activeNavigationIcon = 'ri-archive-stack-fill';
+    protected static ?string $activeNavigationIcon = 'ri-instance-fill';
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -69,6 +69,9 @@ class ProductResource extends Resource
                                 Forms\Components\Textarea::make('email_template')
                                     ->hint('This snippet will be used in the email template.')
                                     ->nullable(),
+                                Forms\Components\Checkbox::make('hidden')
+                                    ->label('Hide product')
+                                    ->hint('Hide the product from the client area.'),
 
                                 Forms\Components\RichEditor::make('description')->nullable()->columnSpanFull(),
                                 Forms\Components\FileUpload::make('image')->label('Image')->nullable()->acceptedFileTypes(['image/*']),
@@ -151,6 +154,26 @@ class ProductResource extends Resource
             ->defaultItems(1)
             ->minItems(1)
             ->columns(2)
+            ->deleteAction(function (Action $action) {
+                $action->before(function (?Product $record, $state, Action $action, array $arguments) {
+                    if (!$record) {
+                        return;
+                    }
+                    $key = $arguments['item'];
+                    if (!isset($state[$key]['id'])) {
+                        return;
+                    }
+                    $plan = $record->plans()->find($state[$key]['id']);
+                    if ($plan->services()->count() > 0) {
+                        Notification::make()
+                            ->title('Whoops!')
+                            ->body('You cannot delete this plan because it is being used by one or more services.')
+                            ->danger()
+                            ->send();
+                        $action->cancel();
+                    }
+                });
+            })
             ->itemLabel(fn (array $state) => $state['name'])
             ->schema([
                 Forms\Components\TextInput::make('name')
@@ -265,15 +288,6 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()->before(function (Collection $records) {
-                        $records->each(function ($record) {
-                            $record->settings()->delete();
-                        });
-                    }),
-                ]),
             ])
             ->defaultSort(function (Builder $query): Builder {
                 return $query

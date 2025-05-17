@@ -1079,22 +1079,34 @@ class MigrateOldData extends Command
                     })->first();
 
                 if (!$price) {
-                    $this->warn("Price not found for order_product_id: {$record['id']}, Creating custom plan.");
-                    $plan_id = DB::table('plans')->insertGetId([
-                        'name' => "Custom - {$billing['unit']} {$billing['type']}",
-                        'type' => $billing['type'],
-                        'billing_period' => $billing['period'],
-                        'billing_unit' => $billing['unit'],
-                        'priceable_id' => $record['product_id'],
-                        'priceable_type' => 'App\Models\Product',
-                    ]);
+                    // Select the plan where the price doesn't match
+                    $plan = DB::table('plans')
+                        ->where('priceable_type', 'App\Models\Product')
+                        ->where('type', $billing['type'])
+                        ->where('billing_period', $billing['period'])
+                        ->where('billing_unit', $billing['unit'])
+                        ->first();
+                    if ($plan) {
+                        $plan_id = $plan->id;
+                    } else {
+                        // If the plan doesn't exist, create it
+                        $this->warn("Price not found for order_product_id: {$record['id']}, Creating custom plan.");
+                        $plan_id = DB::table('plans')->insertGetId([
+                            'name' => "Custom - {$billing['unit']} {$billing['type']}",
+                            'type' => $billing['type'],
+                            'billing_period' => $billing['period'],
+                            'billing_unit' => $billing['unit'],
+                            'priceable_id' => $record['product_id'],
+                            'priceable_type' => 'App\Models\Product',
+                        ]);
 
-                    DB::table('prices')->insert([
-                        'plan_id' => $plan_id,
-                        'price' => $record['price'],
-                        'setup_fee' => null,
-                        'currency_code' => $this->currency_code,
-                    ]);
+                        DB::table('prices')->insert([
+                            'plan_id' => $plan_id,
+                            'price' => $record['price'],
+                            'setup_fee' => null,
+                            'currency_code' => $this->currency_code,
+                        ]);
+                    }
                 }
 
                 return [
@@ -1137,6 +1149,11 @@ class MigrateOldData extends Command
                 }
                 if ($record['is_configurable_option'] === 1) {
                     $configOption = ConfigOption::whereId($record['key'])->first();
+                    if (!$configOption) {
+                        $this->warn("Config option not found for order_product_id: {$record['order_product_id']}, key: {$record['key']}");
+
+                        continue;
+                    }
                     if (in_array($configOption->type, ['text', 'number'])) {
                         $service_properties[] = [
                             'name' => $record['key'],

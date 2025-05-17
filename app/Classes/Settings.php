@@ -5,6 +5,7 @@ namespace App\Classes;
 use App\Models\Setting;
 use App\Models\TaxRate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 
 class Settings
 {
@@ -60,12 +61,18 @@ class Settings
                     'accept' => ['image/*'],
                     'file_name' => 'logo.webp',
                 ],
+                [
+                    'name' => 'tos',
+                    'label' => 'Terms of Service',
+                    'description' => 'URL to your terms of service. Leave blank to disable.',
+                    'type' => 'text',
+                    'required' => false,
+                ],
             ],
 
             // Security (captcha, rate limiting, etc.)
             'security' => [
                 [
-
                     'name' => 'captcha',
                     'label' => 'Captcha',
                     'type' => 'select',
@@ -83,14 +90,12 @@ class Settings
                     'label' => 'Captcha Site Key',
                     'type' => 'text',
                     'required' => false,
-                    'default' => '0x4AAAAAAAC-bTN5KkqiyxNM',
                 ],
                 [
                     'name' => 'captcha_secret',
                     'label' => 'Captcha Secret',
                     'type' => 'text',
                     'required' => false,
-                    'default' => '0x4AAAAAAAC-baD1IX6FMxXxEduRXcmCtuM',
                 ],
 
                 [
@@ -106,6 +111,7 @@ class Settings
                 [
                     'name' => 'oauth_google',
                     'label' => 'Google Enabled',
+                    'description' => new HtmlString('<a href="https://paymenter.org/docs/guides/OAuth#google" target="_blank">Documentation</a>'),
                     'type' => 'checkbox',
                     'default' => false,
                     'required' => false,
@@ -125,6 +131,7 @@ class Settings
                 [
                     'name' => 'oauth_github',
                     'label' => 'GitHub Enabled',
+                    'description' => new HtmlString('<a href="https://paymenter.org/docs/guides/OAuth#github" target="_blank">Documentation</a>'),
                     'type' => 'checkbox',
                     'default' => false,
                     'required' => false,
@@ -144,7 +151,7 @@ class Settings
                 [
                     'name' => 'oauth_discord',
                     'label' => 'Discord Enabled',
-                    'description' => 'Be sure to enable the OAuth2 redirect URL in your Discord application settings. Point it to: ',
+                    'description' => new HtmlString('<a href="https://paymenter.org/docs/guides/OAuth#discord" target="_blank">Documentation</a>'),
                     'type' => 'checkbox',
                     'default' => false,
                     'required' => false,
@@ -211,6 +218,16 @@ class Settings
                     'label' => 'Company Country',
                     'type' => 'select',
                     'options' => array_merge(['' => 'None'], config('app.countries')),
+                ],
+                [
+                    'name' => 'company_tax_id',
+                    'label' => 'Company Tax ID',
+                    'type' => 'text',
+                ],
+                [
+                    'name' => 'company_id',
+                    'label' => 'Company ID',
+                    'type' => 'text',
                 ],
             ],
             'tax' => [
@@ -355,14 +372,14 @@ class Settings
                     'name' => 'cronjob_order_suspend',
                     'label' => 'Suspend server if invoice is x days overdue',
                     'type' => 'number',
-                    'default' => 0,
+                    'default' => 2,
                     'required' => true,
                 ],
                 [
-                    'name' => 'cronjobb_order_terminate',
+                    'name' => 'cronjob_order_terminate',
                     'label' => 'Delete server if invoice is x days overdue (also cancels the invoice)',
                     'type' => 'number',
-                    'default' => 7,
+                    'default' => 14,
                     'required' => true,
                 ],
                 [
@@ -415,9 +432,37 @@ class Settings
                     'label' => 'Theme',
                     'default' => 'default',
                     'type' => 'select',
+                    'required' => true,
                     // Read themes from themes directory
                     'options' => array_map('basename', glob(base_path('themes/*'), GLOB_ONLYDIR)),
                     'validation' => 'in:' . implode(',', array_map('basename', glob(base_path('themes/*'), GLOB_ONLYDIR))),
+                ],
+            ],
+            'invoices' => [
+                [
+                    'name' => 'invoice_number',
+                    'label' => 'Invoice Number',
+                    'type' => 'number',
+                    'default' => 1,
+                    'required' => false,
+                    'description' => 'The next invoice number to use. This will be incremented automatically.',
+                ],
+                [
+                    'name' => 'invoice_number_padding',
+                    'label' => 'Invoice Number Padding',
+                    'type' => 'number',
+                    'default' => 1,
+                    'required' => false,
+                    'description' => 'Number of digits to use for invoice numbers. Example: 0001, 0002, etc.',
+                ],
+                [
+                    'name' => 'invoice_number_format',
+                    'label' => 'Invoice number format',
+                    'type' => 'text',
+                    'default' => '{number}',
+                    'required' => false,
+                    'description' => 'Format to use for invoice numbers. Use {number} to insert the zero padded number and use {year}, {month} and {day} placeholders to insert the current date. Example: INV-{year}-{month}-{day}-{number} or INV-{year}{number}. It must at least contain {number}.',
+                    'validation' => 'regex:/{number}/',
                 ],
             ],
             'other' => [
@@ -467,7 +512,7 @@ class Settings
                     'label' => 'Debug Mode',
                     'type' => 'checkbox',
                     'default' => false,
-                    'description' => 'Enable debug mode to log HTTP requests and display errors in the browser',
+                    'description' => 'Enable debug mode to log HTTP requests and errors',
                 ],
             ],
         ];

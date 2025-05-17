@@ -7,7 +7,7 @@ echo "Starting upgrade process..."
 # Read config/app.php to check if someone is trying to ugprade to a major version.
 if [ -f "config/app.php" ]; then
     if grep -q "marketplace" "config/app.php"; then
-        echo -e "\x1b[31;1mCannot execute self-upgrade process. Please follow the upgrade instructions at https://v1.paymenter.org/docs/guides/v0-migration to migrate your V0 to V1\x1b[0m"
+        echo -e "\x1b[31;1mCannot execute self-upgrade process. Please follow the upgrade instructions at https://paymenter.org/docs/guides/v0-migration to migrate your V0 to V1\x1b[0m"
         exit 1
     fi
 fi
@@ -119,10 +119,7 @@ RUN rm -rf storage/logs/*.log
 # Setup correct permissions on the new files.
 RUN chown -R "$PERMUSER":"$PERMGROUP" .
 
-php artisan p:check-updates
-
-# Make filament faster.
-RUN php artisan filament:optimize
+RUN php artisan app:check-for-updates
 
 # Set application up for maintenance.
 RUN php artisan up

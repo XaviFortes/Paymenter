@@ -1,5 +1,5 @@
 <div>
-    <div class="bg-primary-800 p-6 rounded-lg mt-2">
+    <div class="bg-background-secondary border border-neutral p-6 rounded-lg mt-2">
         <div class="flex flex-col md:flex-row justify-between">
             <h1 class="text-2xl font-semibold">{{ __('services.services') }}</h1>
         </div>
@@ -70,14 +70,14 @@
                     @foreach ($buttons as $button)
                         <!-- If the button has a function then call it when clicked -->
                         @if (isset($button['function']))
-                            <x-button.secondary class="h-fit !w-fit" wire:click="goto('{{ $button['function'] }}')">
+                            <x-button.primary class="h-fit !w-fit" wire:click="goto('{{ $button['function'] }}')">
                                 {{ $button['label'] }}
-                            </x-button.secondary>
+                            </x-button.primary>
                         @else
                             <a href="{{ $button['url'] }}">
-                                <x-button.secondary class="h-fit !w-fit">
+                                <x-button.primary class="h-fit !w-fit">
                                     {{ $button['label'] }}
-                                </x-button.secondary>
+                                </x-button.primary>
                             </a>
                         @endif
                     @endforeach
@@ -105,6 +105,7 @@
             <div wire:loading.remove wire:target="changeView">
                 {!! $extensionView !!}
             </div>
+            <x-loading target="changeView" class="!fill-white" />
         </div>
     @endif
 </div>

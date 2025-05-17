@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Classes\PDF;
 use App\Mail\Mail;
 use App\Models\EmailLog;
 use App\Models\EmailTemplate;
@@ -63,14 +64,23 @@ class NotificationHelper
             'invoice' => $invoice,
             'items' => $invoice->items,
             'total' => $invoice->formattedTotal,
-            'has_subscription' => $invoice->items->filter(fn ($item) => $item->relation_type === Service::class && $item->relation->subscription_id)->isNotEmpty(),
+            'has_subscription' => $invoice->items->filter(fn ($item) => $item->reference_type === Service::class && $item->reference->subscription_id)->isNotEmpty(),
         ];
+
+        // Generate the invoice PDF
+        $pdf = PDF::generateInvoice($invoice);
+        // Save the PDF to a temporary location
+        $pdfPath = storage_path('app/invoices/' . $invoice->number . '.pdf');
+        $pdf->save($pdfPath);
+
+        // Attach the PDF to the email
         $attachments = [
             [
-                'path' => 'invoices/' . $invoice->id . '.pdf',
+                'path' => 'invoices/' . $invoice->number . '.pdf',
                 'name' => 'invoice.pdf',
             ],
         ];
+
         self::sendEmailNotification('new_invoice_created', $data, $user, $attachments);
     }
 

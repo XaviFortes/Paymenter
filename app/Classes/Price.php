@@ -36,7 +36,7 @@ class Price
         $this->discount = $discount;
     }
 
-    public function __construct($priceAndCurrency = null, $free = false, $dontShowUnavailablePrice = false)
+    public function __construct($priceAndCurrency = null, $free = false, $dontShowUnavailablePrice = false, $apply_exclusive_tax = false)
     {
         if (is_array($priceAndCurrency)) {
             $priceAndCurrency = (object) $priceAndCurrency;
@@ -71,7 +71,7 @@ class Price
             $tax = Settings::tax();
             if ($tax) {
                 // Inclusive has the tax included in the price
-                if (config('settings.tax_type') == 'inclusive') {
+                if (config('settings.tax_type') == 'inclusive' || !$apply_exclusive_tax) {
                     $this->tax = number_format($this->price - ($this->price / (1 + $tax->rate / 100)), 2, '.', '');
                     if ($this->setup_fee) {
                         $this->setup_fee_tax = number_format($this->setup_fee - ($this->setup_fee / (1 + $tax->rate / 100)), 2, '.', '');
@@ -79,9 +79,11 @@ class Price
                 } else {
                     // Exclusive has the tax added to the price as an extra
                     $this->tax = number_format($this->price * $tax->rate / 100, 2, '.', '');
+                    $this->original_price = $this->price + $this->tax;
                     $this->price = number_format($this->price + $this->tax, 2, '.', '');
                     if ($this->setup_fee) {
                         $this->setup_fee_tax = number_format($this->setup_fee * $tax->rate / 100, 2, '.', '');
+                        $this->original_setup_fee = $this->setup_fee + $this->setup_fee_tax;
                         $this->setup_fee = number_format($this->setup_fee + $this->setup_fee_tax, 2, '.', '');
                     }
                 }
