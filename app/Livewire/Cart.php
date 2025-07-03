@@ -59,6 +59,9 @@ class Cart extends Component
 
     public function applyCoupon()
     {
+        if ($this->coupon && Session::has('coupon')) {
+            return $this->notify('Coupon code already applied', 'error');
+        }
         try {
             ClassesCart::applyCoupon($this->coupon);
         } catch (DisplayException $e) {
@@ -74,6 +77,9 @@ class Cart extends Component
 
     public function removeCoupon()
     {
+        if (!$this->coupon || !Session::has('coupon')) {
+            return $this->notify('No coupon code applied', 'error');
+        }
         ClassesCart::removeCoupon();
         $this->coupon = null;
         $this->updateTotal();
@@ -115,6 +121,14 @@ class Cart extends Component
         }
         if (config('settings.tos') && !$this->tos) {
             return $this->notify('You must accept the terms of service', 'error');
+        }
+
+        // Re-validate coupon if one exists
+        if (Session::has('coupon') && !ClassesCart::validateAndRefreshCoupon()) {
+            $this->coupon = null;
+            $this->updateTotal();
+
+            return $this->notify('This coupon can no longer be used', 'error');
         }
 
         // Start database transaction

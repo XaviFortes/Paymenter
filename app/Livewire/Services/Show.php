@@ -6,6 +6,7 @@ use App\Helpers\ExtensionHelper;
 use App\Livewire\Component;
 use App\Models\Service;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 
 class Show extends Component
 {
@@ -18,7 +19,8 @@ class Show extends Component
     #[Locked]
     public $currentView;
 
-    public $showModal = '';
+    #[Url('cancel', except: false)]
+    public bool $showCancel = false;
 
     public function mount()
     {
@@ -37,7 +39,7 @@ class Show extends Component
                     $this->views[] = $action;
                 }
             }
-            $this->changeView($this->views[0]['name'] ?? null);
+            $this->changeView($this->views[0] ?? null);
         }
     }
 
@@ -49,9 +51,14 @@ class Show extends Component
         $this->currentView = $view;
     }
 
-    public function openModal($modal)
+    public function updatedShowCancel($value)
     {
-        $this->showModal = $modal;
+        if (!$this->service->cancellable) {
+            $this->notify('This service cannot be cancelled', 'error');
+            $this->showCancel = false;
+
+            return;
+        }
     }
 
     public function goto($function)
@@ -62,7 +69,12 @@ class Show extends Component
 
             return;
         }
-        $this->redirect(ExtensionHelper::callService($this->service, $function));
+        $result = ExtensionHelper::callService($this->service, $function);
+        // If its a response, return it
+        if (!is_string($result)) {
+            return $result;
+        }
+        $this->redirect($result);
     }
 
     public function render()
@@ -72,7 +84,9 @@ class Show extends Component
 
         if ($this->currentView) {
             try {
-                $view = ExtensionHelper::getView($this->service, $this->currentView);
+                // Search array for the current view
+                $currentViewObj = $this->views[array_search($this->currentView, array_column($this->views, 'name'))] ?? null;
+                $view = ExtensionHelper::getView($this->service, $currentViewObj);
             } catch (\Exception $e) {
                 if ($previousView !== $this->views[0]['name'] ?? null) {
                     $this->notify('Got an error while trying to load the view', 'error');

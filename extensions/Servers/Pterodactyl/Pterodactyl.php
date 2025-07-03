@@ -20,7 +20,6 @@ class Pterodactyl extends Server
                 'name' => 'host',
                 'label' => 'Pterodactyl URL',
                 'type' => 'text',
-                'default' => 'https://example.com/',
                 'description' => 'Pterodactyl URL',
                 'required' => true,
                 'validation' => 'url',
@@ -29,7 +28,6 @@ class Pterodactyl extends Server
                 'name' => 'api_key',
                 'label' => 'Pterodactyl API Key',
                 'type' => 'text',
-                'default' => 'ptla_abcdefgh12345678',
                 'description' => 'Pterodactyl API Key',
                 'required' => true,
                 'encrypted' => true,
@@ -305,9 +303,9 @@ class Pterodactyl extends Server
                 'cpu' => (int) $settings['cpu'],
             ],
             'feature_limits' => [
-                'databases' => $settings['databases'],
-                'allocations' => $deploymentData['allocations_needed'] + $settings['additional_allocations'],
-                'backups' => $settings['backups'],
+                'databases' => (int) $settings['databases'],
+                'allocations' => $deploymentData['allocations_needed'] + (int) $settings['additional_allocations'],
+                'backups' => (int) $settings['backups'],
             ],
             'start_on_completion' => $settings['start_on_completion'] ?? false,
         ];
@@ -332,6 +330,48 @@ class Pterodactyl extends Server
     private function generateDeploymentData($settings, $environment)
     {
         if (!isset($settings['port_array']) || $settings['port_array'] === '') {
+            if ($settings['node']) {
+                // Only get one allocation from the node
+                $nodes = $this->request('/api/application/nodes/deployable', 'get', [
+                    'memory' => $settings['memory'],
+                    'disk' => $settings['disk'],
+                    'location_ids' => $settings['location_ids'] ?? [],
+                    'include' => ['allocations'],
+                ]);
+                $nodes = collect($nodes['data']);
+                $nodes_by_id = $nodes->mapWithKeys(fn ($node) => [$node['attributes']['id'] => $node['attributes']]);
+
+                if (!$nodes_by_id->has($settings['node'])) {
+                    throw new \Exception('Node is not suitable for deployment.');
+                }
+                $node = $nodes_by_id->get($settings['node']);
+                $availablePorts = collect($node['relationships']['allocations']['data']);
+                $availablePorts = $availablePorts
+                    ->filter(fn ($port) => !$port['attributes']['assigned'])
+                    ->map(
+                        fn ($port) => [
+                            'port' => $port['attributes']['port'],
+                            'id' => $port['attributes']['id'],
+                        ]
+                    );
+                if ($availablePorts->isEmpty()) {
+                    throw new \Exception('No available allocations found on the selected node.');
+                }
+                $allocation = $availablePorts->first();
+                $environment['SERVER_PORT'] = $allocation['port'];
+
+                // Return the allocation id for the SERVER_PORT
+                return [
+                    'auto_deploy' => false,
+                    'environment' => $environment,
+                    'allocations_needed' => 1,
+                    'allocation' => [
+                        'default' => $allocation['id'],
+                        'additional' => [],
+                    ],
+                ];
+            }
+
             return [
                 'auto_deploy' => true,
                 'environment' => $environment,

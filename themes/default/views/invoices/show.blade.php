@@ -68,7 +68,14 @@
                             </div>
                         @endif
                     </div>
-                    @if(Auth::user()->credits()->where('currency_code', $invoice->currency_code)->exists() && Auth::user()->credits()->where('currency_code', $invoice->currency_code)->first()->amount > 0)
+                    @php
+                        $credit = Auth::user()->credits()
+                                ->where('currency_code', $invoice->currency_code)
+                                ->where('amount', '>', 0)
+                                ->first();
+                        $itemHasCredit = $invoice->items()->where('reference_type', App\Models\Credit::class)->exists();
+                    @endphp
+                    @if($credit && !$itemHasCredit)
                         <x-form.checkbox wire:model="use_credits" name="use_credits" :label="__('product.use_credits')" />
                     @endif
                     @if(count($gateways) > 1)
@@ -109,7 +116,15 @@
                 <tbody>
                     @foreach ($invoice->items as $item)
                         <tr>
-                            <td class="p-4 font-normal whitespace-nowrap">{{ $item->description }}</td>
+                            <td class="p-4 font-normal whitespace-nowrap">
+                                @if(in_array($item->reference_type, ['App\Models\Service', 'App\Models\ServiceUpgrade']))
+                                    <a href="{{ route('services.show', $item->reference_type == 'App\Models\Service' ? $item->reference_id : $item->reference->service_id) }}"
+                                        class="hover:underline underline-offset-2">{{ $item->description }}
+                                    </a>
+                                @else
+                                {{ $item->description }}
+                                @endif
+                            </td>
                             <td class="p-4 font-normal whitespace-nowrap text-base">{{ $item->formattedPrice }}
                             </td>
                             <td class="p-4 font-normal whitespace-nowrap">{{ $item->quantity }}</td>
